@@ -20,6 +20,11 @@ export type QueryOptions<
   capacity?: CapacityOption
   exclusiveStartKey?: Record<string, unknown>
   limit?: number
+  /** if a limit and filter are provided then maxPages is set to Infinity and 
+   * keep querying until Items reaches the limit or the last 
+   * page is reached.  Use a number to set query Limit, if you 
+   * want to query more per request to be filtered */
+  keepGoing?: boolean | number
   maxPages?: number
   reverse?: boolean
   filter?: Entity[] extends ENTITIES ? Condition : never

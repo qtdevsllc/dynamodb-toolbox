@@ -65,6 +65,7 @@ export const queryParams: QueryParamsGetter = <
     maxPages,
     reverse,
     select,
+    keepGoing,
     filter,
     filters: _filters,
     attributes: _attributes,

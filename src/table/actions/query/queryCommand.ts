@@ -137,7 +137,7 @@ export class IQueryCommand<
       formattersByName[entity.entityName] = entity.build(EntityFormatter)
     })
 
-    const formattedItems: FormattedItem[] = []
+    let formattedItems: FormattedItem[] = []
     let lastEvaluatedKey: Record<string, NativeAttributeValue> | undefined = undefined
     let count: number | undefined = 0
     let scannedCount: number | undefined = 0
@@ -146,11 +146,13 @@ export class IQueryCommand<
 
     const {
       attributes,
-      maxPages = 1,
       showEntityAttr = false,
       tagEntities = false,
+      keepGoing,
       noEntityMatchBehavior = 'THROW'
-    } = this[$options]
+    } = this[$options];
+
+    let {maxPages = 1} = this[$options];
 
     let pageIndex = 0
     do {
@@ -160,6 +162,12 @@ export class IQueryCommand<
         ...queryParams,
         // NOTE: Important NOT to override initial exclusiveStartKey on first page
         ...(lastEvaluatedKey !== undefined ? { ExclusiveStartKey: lastEvaluatedKey } : {})
+      }
+
+      let currentLimit = queryParams.Limit;
+      if(keepGoing && currentLimit && queryParams.FilterExpression) {
+        pageQueryParams.Limit = typeof keepGoing === 'number' ? keepGoing : currentLimit;
+        maxPages = Infinity;
       }
 
       const {
@@ -245,6 +253,24 @@ export class IQueryCommand<
 
       consumedCapacity = pageConsumedCapacity
       responseMetadata = pageMetadata
+      if(keepGoing && currentLimit && queryParams.FilterExpression) {
+        if(formattedItems.length >= currentLimit) {
+          if(formattedItems.length > currentLimit) {
+            // lastEvaluatedKey may be different from the query since we're slicing formattedItems to match limit
+            formattedItems = formattedItems.slice(0, currentLimit);
+            const lastItem = formattedItems[formattedItems.length - 1];
+            if(lastItem) {
+              lastEvaluatedKey = {
+                [this.table.partitionKey.name]: lastItem[this.table.partitionKey.name]
+              }
+              if(this.table.sortKey) {
+                lastEvaluatedKey[this.table.sortKey.name] = lastItem[this.table.sortKey.name]
+              }
+            }
+          }
+          break;
+        }
+      }
     } while (pageIndex < maxPages && lastEvaluatedKey !== undefined)
 
     return {
